@@ -35,7 +35,7 @@ def extend(model, input_shape):
                         weight[i] = 1.
                         module.weight.data = weight.reshape(module.weight.shape)
                         # output of module is of dimension (j,k), transposed to (k,j)
-                        out = module(Xeye).reshape(x.numel(), y.numel()).t()
+                        out = module(Xeye, device=device).reshape(x.numel(), y.numel()).t()
                         if (out[out.abs()>1e-5] - 1.).abs().max() > 1e-5:
                             raise RuntimeError('detect factors before weight')
                         M[:,i,:] = torch.abs(out) > 0.5
