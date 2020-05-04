@@ -26,7 +26,7 @@ combine = nn.Sequential(nn.Conv2d(1,1,2), nn.ReLU())
 net = nn.Sequential(combine, combine)
 ```
 
-- The input shape other than batch dimension should be fixed, or at least there only exists a few input shapes. For example, the input x can be of shape (1000, 1, 10, 10) as well as (10, 1, 10, 10), while (100, 1, 10, 10) and (100, 1, 9, 9) is not perfect (but still ok), and (100, 1, ?, ?) where ? can be any integer definitely can't work.
+- Apart from the batch dimension, all other input dimensions fixed, or at least there only exists a few input shapes. For example, the input x can be of shape (1000, 1, 10, 10) as well as (10, 1, 10, 10), while (100, 1, 10, 10) and (100, 1, 9, 9) is not perfect (takes more time but still ok), and (100, 1, ?, ?) where ? can be any integer definitely can't work.
 
 
 ## Usage
