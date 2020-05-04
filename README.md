@@ -6,13 +6,15 @@ Pytorch only provides autograd methods to calculate the gradient of scalars, but
 
 There is already a package "backpack" aiming at this problem, but its BatchGrad - synonymous to Jacobian - only supports nn.Linear and nn.Conv2d layers. Here is the website <https://backpack.pt/> and paper <https://openreview.net/pdf?id=BJlrF24twB> of backpack.
 
-Based on the main idea of backpack, this repository provides an interface for fast Jacobian calculations in pytorch networks for most pytorch layers.
+Based on the main idea of backpack, this repository provides a more general interface for fast Jacobian calculations in pytorch networks.
 
 
-## Aplicable Range
+## Applicable Range
 This package is available for networks satisfying the following conditions.
 
-- All layers with parameters in the network should be 'quasi-linear'. 'Quasi-linear' includes linear layers and convolutional layers in different dimensions. The concrete math description is that the relation between weight $W_i$, bias $b_i$, input $x_j$, output $y_k$ can be written as $y_k = \sum_{ij} M_{kij} W_i x_j + \sum_i N_{ki} b_i$ where M_{kij} and N_{ki} are both tensors with elements 1 or 0. If one creates a layer like $y = W^2 x$ then this package will fail.
+- All layers with parameters in the network should be 'quasi-linear'. 'Quasi-linear' includes linear layers and convolutional layers in different dimensions. The concrete math description is that the relation between weight $W_i$ bias $b_i$ input $x_j$ output $y_k$ can be written as $y_k = \sum_{ij} M_{kij} W_i x_j + \sum_i N_{ki} b_i$ where M and N are both tensors with elements 1 or 0. If one creates a layer like $y = W^2 x$ then this package will fail.
+
+- Parameters in a module can be reached by module.weight or module.bias. This is the default behavior of pytorch layers like nn.Linear and nn.Conv2d. If you define a module by yourself please put your parameters accordingly.
 
 - All layers with parameters should be immediate children modules. For example,
 ``` 
@@ -25,3 +27,12 @@ net = nn.Sequential(combine, combine)
 ```
 
 - The input shape other than batch dimension should be fixed, or at least there only exists a few input shapes. For example, the input x can be of shape (1000, 1, 10, 10) as well as (10, 1, 10, 10), while (100, 1, 10, 10) and (100, 1, 9, 9) is not perfect (but still ok), and (100, 1, ?, ?) where ? can be any integer definitely can't work.
+
+
+## Usage
+See example.py. The provided jacobian method has an input as_tuple default to False. If False, the output is an N by M tensor where N and M are the batch size and the number of parameters, respectively. If True, the output is a tuple aranged in the same order as net.parameters(). Every element in the tuple is a tensor with shape (N, shape of corresponding parameters).
+
+
+## Theory
+Assume the network gives a batch of output $z^({n})$, and the layer input/output is $x^{(n)}_j$/$y^{(n)}_k$. For any 'quasi-linear' layers, the Jacobian can be written into two parts
+\[ \frac{\partial z^({n})}{\partial W_i} = \sum_k \frac{\partial z^({n})}{\partial y^({n})_k) \frac{\partial y^({n})_k}{\partial W_i) \]
