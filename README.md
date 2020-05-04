@@ -6,7 +6,7 @@ Pytorch only provides autograd methods to calculate the gradient of scalars, but
 
 There is already a package "backpack" aiming at this problem, but its BatchGrad - synonymous to Jacobian - only supports nn.Linear and nn.Conv2d layers. Here is the website <https://backpack.pt/> and paper <https://openreview.net/pdf?id=BJlrF24twB> of backpack.
 
-Based on the main idea of backpack, this repository provides a more general interface for fast Jacobian calculations in pytorch networks.
+Based on the main idea of backpack, this repository provides a more general interface for fast Jacobian calculations in pytorch networks. In example.py, it works more than 100 times faster than naive for loops.
 
 
 ## Applicable Range
