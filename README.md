@@ -34,5 +34,5 @@ See example.py. The provided jacobian method has an input as_tuple default to Fa
 
 
 ## Theory
-Assume the network gives a batch of output $z^({n})$, and the layer input/output is $x^{(n)}_j$/$y^{(n)}_k$. For any 'quasi-linear' layers, the Jacobian can be written into two parts
-\[ \frac{\partial z^({n})}{\partial W_i} = \sum_k \frac{\partial z^({n})}{\partial y^({n})_k) \frac{\partial y^({n})_k}{\partial W_i) \]
+Assume the network gives a batch of output $z^{(n)}$, and the layer input/output is $x^{(n)}_j$/$y^{(n)}_k$. For any 'quasi-linear' layers, the Jacobian can be written into two parts
+\\[ \frac{\partial z^({n})}{\partial W_i} = \sum_k \frac{\partial z^({n})}{\partial y^({n})_k) \frac{\partial y^({n})_k}{\partial W_i) \\]
