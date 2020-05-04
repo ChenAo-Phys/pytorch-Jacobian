@@ -35,15 +35,25 @@ See example.py. The provided jacobian method has an input as_tuple default to Fa
 
 ## Theory
 Assume the network gives a batch of output $z^{(n)}$, and the layer inputs and outputs are $x_j^{(n)}$ and $y_k^{(n)}$ respectively. The Jacobian can be written into two parts
+
 $ \frac{\partial z^{(n)}}{\partial W_i} = \sum_k \frac{\partial z^{(n)}}{\partial y_k^{(n)}} \frac{\partial y_k^{(n)}}{\partial W_i} $
+
 The first part is trivial. Assume $ z = \sum_n z^{(n)} $, then
+
 $ \frac{\partial z}{\partial y_k^{(n)}} = \frac{\partial z^{(n)}}{\partial y_k^{(n)}} $
+
 A single backward pass with suitable backward hook can solve it.
 
-The second part is much more complicated so we need to invoke the 'quasi-linear' assumption - $y_k^{(n)} = \sum_{ij} M_{kij} W_i x_j^{(n)} + \sum_i N_{ki} b_i$. The tensors $M_{kij}$ and $N_{ki}$ can be calculated with some tricks. Consider weights W first. Let $b_i = 0$ $W_i = \delta_{i,a}$ $x_j^{(n)} = \delta_{n,j}$, then $y_k^{(n)} = M_{k,a,n}$. One can change $a=0,1,...,Nw-1$ (Nw is the number of weights in this layer) and forward pass Nw times to get all $M_{kij}$. This takes some time, but it's prepared before calculation and $M_{kij}$ is stored. $M_{kij}$ is 0 or 1 so I store it as a bool tensor to save room.
+The second part is much more complicated so we need to invoke the 'quasi-linear' assumption
+
+$y_k^{(n)} = \sum_{ij} M_{kij} W_i x_j^{(n)} + \sum_i N_{ki} b_i$
+
+The tensors $M_{kij}$ and $N_{ki}$ can be calculated with some tricks. Consider weights W first. Let $b_i = 0$ $W_i = \delta_{i,a}$ $x_j^{(n)} = \delta_{n,j}$, then $y_k^{(n)} = M_{k,a,n}$. One can change $a=0,1,...,Nw-1$ (Nw is the number of weights in this layer) and forward pass Nw times to get all $M_{kij}$. This takes some time, but it's prepared before calculation and $M_{kij}$ is stored. $M_{kij}$ is 0 or 1 so I store it as a bool tensor to save room.
 
 The bias part goes similarly. $x_j^{(n)} = 0$ $b_i = \delta_{i,a}$ so that $y_k^{(n)} = N_{ka}$.
 
 After going through all these preparations, the Jacobian can be expressed as
+
 $ \frac{\partial z^{(n)}}{\partial W_i} = \sum_k \frac{\partial z}{\partial y_k^{(n)}} \sum_j M_{kij} x_j^{(n)}$
+
 $ \frac{\partial z^{(n)}}{\partial b_i} = \sum_k \frac{\partial z}{\partial y_k^{(n)}} N_{ki}$
