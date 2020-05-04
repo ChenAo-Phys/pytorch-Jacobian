@@ -15,15 +15,17 @@ net = nn.Sequential(
 # extended for Jacobian calculation
 extend(net, (1,6,6,6))
 
-x = torch.randn(100,1,6,6,6)
+x = torch.randn(1000,1,6,6,6)
 
 # Jacobian computed by the improved method
+# On Colab CPU 0.16s, K80 GPU 0.14s
 with JacobianMode(net):
     out = net(x)
     out.sum().backward()
     jac = net.jacobian()
 
 # Jacobian computed by naive for loops
+# On Colab CPU 18.50s, K80 GPU 17.66s
 out = net(x)
 jac_loop = []
 for o in out.view(-1):
