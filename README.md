@@ -2,7 +2,7 @@
 
 
 ## Target
-Pytorch only provides autograd methods to calculate the gradient of scalars, but sometimes Jacobian - the gradient of vectors, are also significant in researches. In concrete, for N inputs $x^{(n)} n=0,1,...,N-1$ feeded into a network with parameters $W_i$ as a batch and giving outputs $z^{(n)}$ and loss $l^{(n)}$, there is no method to calculate the Jacobian matrix with elements $J_{ni} = \frac{\partial z^{(n)}}{\partial W_i}$ or $\frac{\partial l^{(n)}}{\partial W_i}$ in a single forward and backward pass. Naively one can backpropagate N times and combine N gradients together to form the Jacobian matrix, but it's too slow.
+Pytorch only provides autograd methods to calculate the gradient of scalars, but sometimes Jacobian - the gradient of vectors, are also significant in researches. In concrete, for N inputs $x^{(n)}, n=0,1,...,N-1$ feeded into a network as a batch and giving outputs $z^{(n)}$ and loss $l^{(n)}$, there is no method to calculate the Jacobian matrix with elements $J_{ni} = \frac{\partial z^{(n)}}{\partial W_i}$ or $\frac{\partial l^{(n)}}{\partial W_i}$ in a single forward and backward pass. Naively one can backpropagate N times and combine N gradients together to form the Jacobian matrix, but it's too slow.
 
 There is already a package "backpack" aiming at this problem, but its BatchGrad - synonymous to Jacobian - only supports nn.Linear and nn.Conv2d layers. Here is the website <https://backpack.pt/> and paper <https://openreview.net/pdf?id=BJlrF24twB> of backpack.
 
@@ -48,9 +48,9 @@ The second part is much more complicated so we need to invoke the 'quasi-linear'
 
 $y_k^{(n)} = \sum_{ij} M_{kij} W_i x_j^{(n)} + \sum_i N_{ki} b_i$
 
-The tensors $M_{kij}$ and $N_{ki}$ can be calculated with some tricks. Consider weights W first. Let $b_i = 0$ $W_i = \delta_{i,a}$ $x_j^{(n)} = \delta_{n,j}$, then $y_k^{(n)} = M_{k,a,n}$. One can change $a=0,1,...,Nw-1$ (Nw is the number of weights in this layer) and forward pass Nw times to get all $M_{kij}$. This takes some time, but it's prepared before calculation and $M_{kij}$ is stored. $M_{kij}$ is 0 or 1 so I store it as a bool tensor to save room.
+The tensors $M_{kij}$ and $N_{ki}$ can be calculated with some tricks. Consider weights W first. Let $b_i = 0$, $W_i = \delta_{i,a}$, $x_j^{(n)} = \delta_{n,j}$, then $y_k^{(n)} = M_{k,a,n}$. One can change $a=0,1,...,Nw-1$ (Nw is the number of weights in this layer) and forward pass Nw times to get all $M_{kij}$. This takes some time, but it's prepared before calculation and $M_{kij}$ is stored. $M_{kij}$ is 0 or 1 so I store it as a bool tensor to save room.
 
-The bias part goes similarly. $x_j^{(n)} = 0$ $b_i = \delta_{i,a}$ so that $y_k^{(n)} = N_{ka}$.
+The bias part goes similarly. $x_j^{(n)} = 0$, $b_i = \delta_{i,a}$ so that $y_k^{(n)} = N_{ka}$.
 
 After going through all these preparations, the Jacobian can be expressed as
 
