@@ -16,6 +16,7 @@ net = nn.Sequential(
 extend(net, (1,6,6,6))
 
 x = torch.randn(1000,1,6,6,6)
+# output shape will be (1000,)
 
 # Jacobian computed by the improved method
 # On Colab CPU 0.16s, K80 GPU 0.14s
