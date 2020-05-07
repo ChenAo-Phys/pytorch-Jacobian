@@ -28,6 +28,8 @@ net = nn.Sequential(combine, combine)
 
 - Apart from the batch dimension, all other input dimensions fixed, or at least there only exists a few input shapes. For example, the input x can be of shape (1000, 1, 10, 10) as well as (10, 1, 10, 10), while (100, 1, 10, 10) and (100, 1, 9, 9) is not perfect (takes more time but still ok), and (100, 1, ?, ?) where ? can be any integer definitely can't work.
 
+- This method is still very memory-consuming. It can only be used in very small networks.
+
 
 ## Usage
 See example.py. The provided jacobian method has an input as_tuple default to False. If False, the output is an N by D tensor where N and D are the batch size and the number of parameters, respectively. If True, the output is a tuple aranged in the same order as net.parameters(). Every element in the tuple is a tensor with shape (N, shape of corresponding parameters).
