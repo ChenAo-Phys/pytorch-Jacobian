@@ -11,8 +11,13 @@ def extend(model, input_shape):
         raise TypeError('input_shape should be a tuple')
 
     device = next(model.parameters()).device
-    M_list = []
-    N_list = []
+
+    weight_input_list = []
+    weight_output_list = []
+    weight_repeat_list = []
+    bias_output_list = []
+    bias_repeat_list = []
+
     x = torch.zeros((1,) + input_shape, device=device)
     with torch.no_grad():
         for module in model.children():
@@ -29,76 +34,100 @@ def extend(model, input_shape):
 
                 if module.weight is not None:
                     Nweight = module.weight.numel()
-                    M = torch.empty(y.numel(), Nweight, x.numel(), dtype=torch.bool, device=device)
+                    weight_input = []
+                    weight_output = []
+                    weight_repeat = torch.zeros(Nweight, dtype=torch.long, device=device)
                     Xeye = torch.eye(x.numel(), device=device).reshape((-1,)+x.shape[1:])
                     for i in range(Nweight):
                         weight = torch.zeros(Nweight, device=device)
                         weight[i] = 1.
                         module.weight.data = weight.reshape(module.weight.shape)
-                        # output of module is of dimension (j,k), transposed to (k,j)
-                        out = module(Xeye).reshape(x.numel(), y.numel()).t()
+                        # output of module is of dimension (j,k)
+                        out = module(Xeye).reshape(x.numel(), y.numel())
                         if (out[out.abs()>1e-5] - 1.).abs().max() > 1e-5:
-                            raise RuntimeError('detect factors before weight')
-                        M[:,i,:] = torch.abs(out) > 0.5
-                    M_list.append(M)
+                            raise RuntimeError('the network is not written in the standard form, see https://github.com/ChenAo-Phys/pytorch-Jacobian')
+                        nonzero = torch.nonzero(out > 0.5, as_tuple=False)
+                        weight_input.append(nonzero[:,0])
+                        weight_output.append(nonzero[:,1])
+                        weight_repeat[i] = nonzero.shape[0]
+                    weight_input_list.append(torch.cat(weight_input, dim=0))
+                    weight_output_list.append(torch.cat(weight_output, dim=0))
+                    weight_repeat_list.append(weight_repeat)
                     module.weight.data = initial_weight
                 else:
-                    M_list.append(None)
+                    weight_input_list.append(None)
+                    weight_output_list.append(None)
+                    weight_repeat_list.append(None)
                 
                 if module.bias is not None:
                     Nbias = module.bias.numel()
-                    N = torch.empty(y.numel(), module.bias.numel(), dtype=torch.bool, device=device)
+                    bias_output = []
+                    bias_repeat = torch.zeros(Nbias, dtype=torch.long, device=device)
                     for i in range(Nbias):
                         bias = torch.zeros(Nbias, device=device)
                         bias[i] = 1.
                         module.bias.data = bias.reshape(module.bias.shape)
                         out = module(x).reshape(-1)
                         if (out[out.abs()>1e-5] - 1.).abs().max() > 1e-5:
-                            raise RuntimeError('detect factors before bias')
-                        N[:,i] = torch.abs(out) > 0.5
-                    N_list.append(N)
+                            raise RuntimeError('the network is not written in the standard form, see https://github.com/ChenAo-Phys/pytorch-Jacobian')
+                        nonzero = torch.nonzero(out > 0.5, as_tuple=False)
+                        bias_output.append(nonzero[:,0])
+                        bias_repeat[i] = nonzero.shape[0]
+                    bias_output_list.append(torch.cat(bias_output, dim=0))
+                    bias_repeat_list.append(bias_repeat)
                     module.bias.data = initial_bias
                 else:
-                    N_list.append(None)
+                    bias_output_list.append(None)
+                    bias_repeat_list.append(None)
                     
             x = torch.zeros_like(y)
         
     if not hasattr(model, '_Jacobian_shape_dict'):
         model._Jacobian_shape_dict = {}
-    model._Jacobian_shape_dict[input_shape] = (M_list, N_list)
+    model._Jacobian_shape_dict[input_shape] = (
+        weight_input_list, weight_output_list, weight_repeat_list, bias_output_list, bias_repeat_list)
 
 
     # assign jacobian method to model
     def jacobian(self, as_tuple=False):
         shape = self.input_shape
         if hasattr(self, '_Jacobian_shape_dict') and shape in self._Jacobian_shape_dict:
-            M_list, N_list = self._Jacobian_shape_dict[shape]
+            weight_input_list, weight_output_list, weight_repeat_list, bias_output_list, bias_repeat_list \
+            = self._Jacobian_shape_dict[shape]
         else:
             raise RuntimeError('model or specific input shape is not extended for jacobian calculation')
 
+        device = next(model.parameters()).device
         jac = []
         layer = 0
         for module in self.children():
             if sum(p.numel() for p in module.parameters()):
-                M = M_list[layer]
-                N = N_list[layer]
+                weight_input = weight_input_list[layer]
+                weight_output = weight_output_list[layer]
+                weight_repeat = weight_repeat_list[layer]
+                bias_output = bias_output_list[layer]
+                bias_repeat = bias_repeat_list[layer]
                 x = self.x_in[layer]
-                n = x.shape[0]
-                k,i,j = M.shape[0:3]
-                dz_dy = self.gradient[layer].reshape(n,k)
+                N = x.shape[0]
+                dz_dy = self.gradient[layer].reshape(N,-1)
 
-                if M is not None:
-                    dy_dW = torch.einsum('kij,nj->nki', M.type_as(x), x.reshape(n,j))
-                    dz_dW = torch.einsum('nk,nki->ni', dz_dy, dy_dW)
+                if weight_repeat is not None:
+                    Nweight = weight_repeat.shape[0]
+                    dz_dy_select = dz_dy[:, weight_output]
+                    x_select = x.reshape(N,-1)[:, weight_input]
+                    repeat = torch.repeat_interleave(weight_repeat)
+                    dz_dW = torch.zeros(N,Nweight, device=device).index_add_(1, repeat, dz_dy_select * x_select)
                     if as_tuple:
-                        dz_dW = dz_dW.reshape((n,) + module.weight.shape)
+                        dz_dW = dz_dW.reshape((N,) + module.weight.shape)
                     jac.append(dz_dW)
-                if N is not None:
-                    dz_db = torch.einsum('nk,ki->ni', dz_dy, N.type_as(dz_dy))
+                if bias_repeat is not None:
+                    Nbias = bias_repeat.shape[0]
+                    dz_dy_select = dz_dy[:, bias_output]
+                    repeat = torch.repeat_interleave(bias_repeat)
+                    dz_db = torch.zeros(N,Nbias, device=device).index_add_(1, repeat, dz_dy_select)
                     if as_tuple:
-                        dz_db = dz_db.reshape((n,) + module.bias.shape)
+                        dz_db = dz_db.reshape((N,) + module.bias.shape)
                     jac.append(dz_db)
-
                 layer += 1
 
         if as_tuple:
