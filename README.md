@@ -12,7 +12,7 @@ Based on the main idea of backpack, this repository provides a more general inte
 ## Applicable Range
 This package is available for networks satisfying the following conditions.
 
-- All layers with parameters in the network should be 'quasi-linear'. 'Quasi-linear' includes linear layers and convolutional layers in different dimensions. The concrete math description is that the relation between weight $W_i$ bias $b_i$ input $x_j$ output $y_k$ can be written as $y_k = \sum_{ij} M_{kij} W_i x_j + \sum_i N_{ki} b_i$ where M and N are both tensors with elements 1 or 0. If one creates a layer like $y = W^2 x$ then this package will fail.
+- All layers with parameters in the network should be 'quasi-linear'. 'Quasi-linear' includes linear layers and convolutional layers in different dimensions. The concrete math description is that the relation between weight $W_i$ bias $b_i$ input $x_j^{(n)}$ output $y_k^{(n)}$ can be written as $y_k^{(n)} = \sum_{ij} M_{kij} W_i x_j^{(n)} + \sum_i N_{ki} b_i$ where M and N are both tensors with elements 1 or 0. If one creates a layer like $y = W^2 x$ then this package will fail.
 
 - Parameters in a module can be reached by module.weight or module.bias. This is the default behavior of pytorch layers like nn.Linear and nn.Conv2d. If you define a module by yourself please put your parameters accordingly.
 
@@ -30,7 +30,7 @@ net = nn.Sequential(combine, combine)
 
 
 ## Usage
-See example.py. The provided jacobian method has an input as_tuple default to False. If False, the output is an N by Nw tensor where N and Nw are the batch size and the number of parameters, respectively. If True, the output is a tuple aranged in the same order as net.parameters(). Every element in the tuple is a tensor with shape (N, shape of corresponding parameters).
+See example.py. The provided jacobian method has an input as_tuple default to False. If False, the output is an N by D tensor where N and D are the batch size and the number of parameters, respectively. If True, the output is a tuple aranged in the same order as net.parameters(). Every element in the tuple is a tensor with shape (N, shape of corresponding parameters).
 
 
 ## Theory
@@ -48,7 +48,7 @@ The second part is much more complicated so we need to invoke the 'quasi-linear'
 
 $y_k^{(n)} = \sum_{ij} M_{kij} W_i x_j^{(n)} + \sum_i N_{ki} b_i$
 
-The tensors $M_{kij}$ and $N_{ki}$ can be calculated with some tricks. Consider weights W first. Let $b_i = 0$, $W_i = \delta_{i,a}$, $x_j^{(n)} = \delta_{n,j}$, then $y_k^{(n)} = M_{k,a,n}$. One can change $a=0,1,...,Nw-1$ (Nw is the number of weights in this layer) and forward pass Nw times to get all $M_{kij}$. This takes some time, but it's prepared before calculation and $M_{kij}$ is stored. $M_{kij}$ is 0 or 1 so I store it as a bool tensor to save room.
+The tensors $M_{kij}$ and $N_{ki}$ can be calculated with some tricks. Consider weights W first. Let $b_i = 0$, $W_i = \delta_{i,a}$, $x_j^{(n)} = \delta_{n,j}$, then $y_k^{(n)} = M_{k,a,n}$. One can change $a=0,1,...,D-1$ (D is the number of weights in this layer) and forward pass D times to get all $M_{kij}$. This takes some time, but it's prepared before calculation and $M_{kij}$ is stored. $M_{kij}$ is very sparse so only the position of non-zero elements is stored to reduce the memory complexity. The room used in the calculation is roughly in the same magnitude as the number of connections in the layer (e.g. $N \times D$ in a fully connected network).
 
 The bias part goes similarly. $x_j^{(n)} = 0$, $b_i = \delta_{i,a}$ so that $y_k^{(n)} = N_{ka}$.
 
